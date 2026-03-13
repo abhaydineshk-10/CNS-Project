@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AES-256 Vault</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --danger: #ff4d6d;
+    --success: #00ff87;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --glow: 0 0 40px rgba(0,229,255,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Ambient glow orbs */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+    animation: drift 8s ease-in-out infinite alternate;
+  }
+  .orb1 { width: 400px; height: 400px; background: rgba(0,229,255,0.06); top: -100px; right: -100px; }
+  .orb2 { width: 300px; height: 300px; background: rgba(124,58,237,0.08); bottom: -50px; left: -50px; animation-delay: -4s; }
+
+  @keyframes drift {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(20px, 30px) scale(1.1); }
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .logo-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 0 30px rgba(0,229,255,0.3);
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.4rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #fff 30%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  /* Mode tabs */
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 4px;
+    margin-bottom: 32px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    letter-spacing: 0.02em;
+  }
+
+  .tab.active {
+    background: var(--surface2);
+    color: var(--text);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+
+  .tab.active.encrypt { color: var(--accent); }
+  .tab.active.decrypt { color: var(--accent2); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    animation: fadeUp 0.6s 0.2s ease both;
+    transition: border-color 0.3s;
+  }
+
+  .card:hover { border-color: rgba(0,229,255,0.2); }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 14px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .dropzone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,229,255,0.04) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.03);
+  }
+
+  .dropzone:hover::before, .dropzone.dragover::before { opacity: 1; }
+
+  .dropzone.dragover {
+    transform: scale(1.01);
+    box-shadow: var(--glow);
+  }
+
+  .dropzone.decrypt-zone:hover,
+  .dropzone.decrypt-zone.dragover {
+    border-color: var(--accent2);
+    background: rgba(124,58,237,0.05);
+    box-shadow: 0 0 40px rgba(124,58,237,0.15);
+  }
+
+  .drop-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    display: block;
+    transition: transform 0.3s;
+  }
+
+  .dropzone:hover .drop-icon { transform: translateY(-4px); }
+
+  .drop-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .drop-sub {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .drop-sub span {
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .decrypt-zone .drop-sub span { color: var(--accent2); }
+
+  /* File selected state */
+  .file-selected {
+    display: none;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 16px;
+  }
+
+  .file-selected.visible { display: flex; }
+
+  .file-icon { font-size: 1.8rem; }
+
+  .file-info { flex: 1; min-width: 0; }
+
+  .file-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+  }
+
+  .file-size { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+  .remove-file {
+    background: none; border: none;
+    color: var(--muted); cursor: pointer;
+    font-size: 1.1rem; padding: 4px;
+    border-radius: 6px;
+    transition: color 0.2s;
+  }
+  .remove-file:hover { color: var(--danger); }
+
+  /* Password field */
+  .field { margin-bottom: 20px; }
+
+  label {
+    display: block;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .input-wrap {
+    position: relative;
+  }
+
+  input[type="password"], input[type="text"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 13px 48px 13px 16px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+  }
+
+  .decrypt-section input:focus {
+    border-color: var(--accent2);
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+  }
+
+  .toggle-pw {
+    position: absolute;
+    right: 14px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    color: var(--muted); cursor: pointer;
+    font-size: 1rem;
+    transition: color 0.2s;
+  }
+  .toggle-pw:hover { color: var(--text); }
+
+  /* Password strength */
+  .strength-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+
+  .strength-fill {
+    height: 100%;
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.4s ease, background 0.4s ease;
+  }
+
+  .strength-label {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 4px;
+    text-align: right;
+  }
+
+  /* Confirm field */
+  .confirm-wrap { position: relative; }
+
+  .match-icon {
+    position: absolute;
+    right: 14px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  /* Button */
+  .btn {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0);
+    transition: background 0.2s;
+  }
+
+  .btn:hover::after { background: rgba(255,255,255,0.07); }
+  .btn:active { transform: scale(0.98); }
+
+  .btn-encrypt {
+    background: linear-gradient(135deg, #00b4cc, var(--accent));
+    color: #000;
+    box-shadow: 0 4px 20px rgba(0,229,255,0.25);
+  }
+
+  .btn-encrypt:hover {
+    box-shadow: 0 6px 30px rgba(0,229,255,0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn-decrypt {
+    background: linear-gradient(135deg, #5b21b6, var(--accent2));
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.25);
+  }
+
+  .btn-decrypt:hover {
+    box-shadow: 0 6px 30px rgba(124,58,237,0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+
+  .btn-decrypt .spinner {
+    border-color: rgba(255,255,255,0.3);
+    border-top-color: #fff;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Toast notifications */
+  .toast-container {
+    position: fixed;
+    bottom: 32px; right: 32px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 280px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    animation: slideIn 0.3s ease;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+
+  .toast.success { border-color: var(--success); }
+  .toast.error   { border-color: var(--danger); }
+
+  .toast.hide {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Info strip */
+  .info-strip {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+
+  .info-pill {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .info-pill strong {
+    display: block;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  /* Section visibility */
+  .encrypt-section, .decrypt-section { display: none; }
+  .encrypt-section.active, .decrypt-section.active { display: block; }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 16px;
+    overflow: hidden;
+    display: none;
+  }
+
+  .progress-wrap.visible { display: block; }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.4s ease;
+    animation: shimmer 1.5s infinite;
+    background-size: 200% 100%;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<div class="container">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🔐</div>
+      <h1>AES Vault</h1>
+    </div>
+
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs" role="tablist" aria-label="Encryption mode">
+    <button class="tab encrypt active" role="tab" aria-selected="true" aria-controls="encryptSection" onclick="switchTab('encrypt')">🔒 Encrypt File</button>
+    <button class="tab decrypt" role="tab" aria-selected="false" aria-controls="decryptSection" onclick="switchTab('decrypt')">🔓 Decrypt File</button>
+  </div>
+
+  <!-- Card -->
+  <div class="card">
+
+    <!-- ENCRYPT SECTION -->
+    <div class="encrypt-section active" id="encryptSection" role="tabpanel">
+
+      <div class="dropzone" id="encryptDrop" role="button" tabindex="0" aria-label="Drop zone: click or drag a file here to encrypt"
+           ondragover="handleDragOver(event, 'encryptDrop')"
+           ondragleave="handleDragLeave('encryptDrop')"
+           ondrop="handleDrop(event, 'encryptFile', 'encryptDrop')"
+           onclick="document.getElementById('encryptFile').click()">
+        <span class="drop-icon">📄</span>
+        <div class="drop-title">Drop any file here</div>
+        <div class="drop-sub">or <span>browse to choose</span> — any format supported</div>
+        <input type="file" id="encryptFile" aria-label="Select a file to encrypt" onchange="fileSelected('encryptFile', 'encryptFileInfo')">
+      </div>
+
+      <div class="file-selected" id="encryptFileInfo">
+        <span class="file-icon" id="encryptFileIcon">📄</span>
+        <div class="file-info">
+          <div class="file-name" id="encryptFileName">—</div>
+          <div class="file-size" id="encryptFileSize">—</div>
+        </div>
+        <button class="remove-file" aria-label="Remove selected file" onclick="clearFile('encryptFile', 'encryptFileInfo')">✕</button>
+      </div>
+
+      <div class="field">
+        <label for="encryptPass">Password</label>
+        <div class="input-wrap">
+          <input type="password" id="encryptPass" placeholder="Create a strong password…"
+                 oninput="updateStrength()" autocomplete="new-password">
+          <button class="toggle-pw" aria-label="Show password" onclick="togglePw('encryptPass', this)">👁</button>
+        </div>
+        <div class="strength-bar" role="presentation"><div class="strength-fill" id="strengthFill"></div></div>
+        <div class="strength-label" id="strengthLabel" aria-live="polite" aria-atomic="true">—</div>
+      </div>
+
+      <div class="field">
+        <label for="encryptConfirm">Confirm Password</label>
+        <div class="input-wrap confirm-wrap">
+          <input type="password" id="encryptConfirm" placeholder="Repeat password…"
+                 oninput="checkMatch()" autocomplete="new-password">
+          <span class="match-icon" id="matchIcon"></span>
+        </div>
+      </div>
+
+      <div class="progress-wrap" id="encryptProgress" role="progressbar" aria-label="Encryption progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" id="encryptBar"></div>
+      </div>
+
+      <button class="btn btn-encrypt" id="encryptBtn" onclick="doEncrypt()">
+        Encrypt &amp; Download
+      </button>
+    </div>
+
+    <!-- DECRYPT SECTION -->
+    <div class="decrypt-section" id="decryptSection" role="tabpanel">
+
+      <div class="dropzone decrypt-zone" id="decryptDrop" role="button" tabindex="0" aria-label="Drop zone: click or drag an encrypted .aesenc file here to decrypt"
+           ondragover="handleDragOver(event, 'decryptDrop')"
+           ondragleave="handleDragLeave('decryptDrop')"
+           ondrop="handleDrop(event, 'decryptFile', 'decryptDrop')"
+           onclick="document.getElementById('decryptFile').click()">
+        <span class="drop-icon">🔒</span>
+        <div class="drop-title">Drop your .aesenc file here</div>
+        <div class="drop-sub">or <span>browse to choose</span></div>
+        <input type="file" id="decryptFile" accept=".aesenc" aria-label="Select an encrypted .aesenc file to decrypt" onchange="fileSelected('decryptFile', 'decryptFileInfo')">
+      </div>
+
+      <div class="file-selected" id="decryptFileInfo">
+        <span class="file-icon">🔒</span>
+        <div class="file-info">
+          <div class="file-name" id="decryptFileName">—</div>
+          <div class="file-size" id="decryptFileSize">—</div>
+        </div>
+        <button class="remove-file" aria-label="Remove selected file" onclick="clearFile('decryptFile', 'decryptFileInfo')">✕</button>
+      </div>
+
+      <div class="field">
+        <label for="decryptPass">Password</label>
+        <div class="input-wrap">
+          <input type="password" id="decryptPass" placeholder="Enter the encryption password…"
+                 autocomplete="current-password">
+          <button class="toggle-pw" aria-label="Show password" onclick="togglePw('decryptPass', this)">👁</button>
+        </div>
+      </div>
+
+      <div class="progress-wrap" id="decryptProgress" role="progressbar" aria-label="Decryption progress" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" id="decryptBar"></div>
+      </div>
+
+      <button class="btn btn-decrypt" id="decryptBtn" onclick="doDecrypt()">
+        Decrypt &amp; Download
+      </button>
+    </div>
+
+  </div><!-- /card -->
+
+  <!-- Info strip -->
+  <div class="info-strip">
+    <div class="info-pill"><strong>AES-256-GCM</strong>Authenticated encryption</div>
+    <div class="info-pill"><strong>PBKDF2</strong>200K iterations</div>
+    <div class="info-pill"><strong>Zero Storage</strong>Files never saved</div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- Toast container -->
+<div class="toast-container" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
+
+<script>
+  // ── Tab switching ──────────────────────────────────────
+  function switchTab(mode) {
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
+    const activeTab = document.querySelector(`.tab.${mode}`);
+    activeTab.classList.add('active');
+    activeTab.setAttribute('aria-selected', 'true');
+    document.getElementById('encryptSection').classList.toggle('active', mode === 'encrypt');
+    document.getElementById('decryptSection').classList.toggle('active', mode === 'decrypt');
+  }
+
+  // ── Drag & Drop ────────────────────────────────────────
+  function handleDragOver(e, zoneId) {
+    e.preventDefault();
+    document.getElementById(zoneId).classList.add('dragover');
+  }
+
+  function handleDragLeave(zoneId) {
+    document.getElementById(zoneId).classList.remove('dragover');
+  }
+
+  function handleDrop(e, inputId, zoneId) {
+    e.preventDefault();
+    document.getElementById(zoneId).classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const input = document.getElementById(inputId);
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    const infoId = inputId === 'encryptFile' ? 'encryptFileInfo' : 'decryptFileInfo';
+    showFileInfo(file, infoId, inputId);
+  }
+
+  // ── File selection ─────────────────────────────────────
+  function fileSelected(inputId, infoId) {
+    const file = document.getElementById(inputId).files[0];
+    if (file) showFileInfo(file, infoId, inputId);
+  }
+
+  function showFileInfo(file, infoId, inputId) {
+    const info = document.getElementById(infoId);
+    const isEncrypt = inputId === 'encryptFile';
+    document.getElementById(isEncrypt ? 'encryptFileName' : 'decryptFileName').textContent = file.name;
+    document.getElementById(isEncrypt ? 'encryptFileSize' : 'decryptFileSize').textContent = fmtSize(file.size);
+    if (isEncrypt) {
+      document.getElementById('encryptFileIcon').textContent = getFileEmoji(file.name);
+    }
+    info.classList.add('visible');
+  }
+
+  function clearFile(inputId, infoId) {
+    document.getElementById(inputId).value = '';
+    document.getElementById(infoId).classList.remove('visible');
+  }
+
+  function getFileEmoji(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    const map = { pdf:'📕', txt:'📝', doc:'📘', docx:'📘', jpg:'🖼️', jpeg:'🖼️',
+                  png:'🖼️', mp4:'🎬', mp3:'🎵', zip:'📦', py:'🐍', js:'📜',
+                  html:'🌐', csv:'📊', xlsx:'📊' };
+    return map[ext] || '📄';
+  }
+
+  function fmtSize(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n/1024).toFixed(1) + ' KB';
+    if (n < 1073741824) return (n/1048576).toFixed(1) + ' MB';
+    return (n/1073741824).toFixed(1) + ' GB';
+  }
+
+  // ── Password strength ──────────────────────────────────
+  function updateStrength() {
+    const pw = document.getElementById('encryptPass').value;
+    const fill = document.getElementById('strengthFill');
+    const label = document.getElementById('strengthLabel');
+
+    let score = 0;
+    if (pw.length >= 8)  score++;
+    if (pw.length >= 12) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+    const levels = [
+      { pct: '0%',   color: 'transparent', text: '—' },
+      { pct: '25%',  color: '#ff4d6d',     text: 'Weak' },
+      { pct: '50%',  color: '#ff9f43',     text: 'Fair' },
+      { pct: '75%',  color: '#ffd32a',     text: 'Good' },
+      { pct: '90%',  color: '#00e676',     text: 'Strong' },
+      { pct: '100%', color: '#00ff87',     text: 'Very strong ✓' },
+    ];
+
+    const lvl = pw.length === 0 ? 0 : Math.max(1, score);
+    fill.style.width = levels[lvl].pct;
+    fill.style.background = levels[lvl].color;
+    label.textContent = levels[lvl].text;
+    label.style.color = levels[lvl].color;
+
+    checkMatch();
+  }
+
+  function checkMatch() {
+    const pw  = document.getElementById('encryptPass').value;
+    const cfm = document.getElementById('encryptConfirm').value;
+    const icon = document.getElementById('matchIcon');
+    if (!cfm) { icon.style.opacity = 0; return; }
+    icon.style.opacity = 1;
+    icon.textContent = pw === cfm ? '✓' : '✗';
+    icon.style.color = pw === cfm ? 'var(--success)' : 'var(--danger)';
+  }
+
+  // ── Toggle password visibility ─────────────────────────
+  function togglePw(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? '🙈' : '👁';
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  }
+
+  // ── Toast ──────────────────────────────────────────────
+  function showToast(msg, type = 'success') {
+    const container = document.getElementById('toasts');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('hide');
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+
+  // ── Encrypt ────────────────────────────────────────────
+  async function doEncrypt() {
+    const file = document.getElementById('encryptFile').files[0];
+    const pass = document.getElementById('encryptPass').value;
+    const conf = document.getElementById('encryptConfirm').value;
+
+    if (!file)        return showToast('Please select a file first', 'error');
+    if (!pass)        return showToast('Please enter a password', 'error');
+    if (pass !== conf) return showToast('Passwords do not match', 'error');
+    if (pass.length < 4) return showToast('Password too short (min 4 chars)', 'error');
+
+    const btn = document.getElementById('encryptBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Encrypting…';
+
+    const prog = document.getElementById('encryptProgress');
+    const bar  = document.getElementById('encryptBar');
+    prog.classList.add('visible');
+    bar.style.width = '30%';
+
+    const form = new FormData();
+    form.append('file', file);
+    form.append('password', pass);
+
+    try {
+      bar.style.width = '70%';
+      const res = await fetch('/encrypt', { method: 'POST', body: form });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Encryption failed');
+      }
+
+      bar.style.width = '100%';
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = file.name + '.aesenc';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      showToast(`${file.name} encrypted successfully!`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Encrypt &amp; Download';
+      setTimeout(() => { prog.classList.remove('visible'); bar.style.width = '0%'; }, 1000);
+    }
+  }
+
+  // ── Decrypt ────────────────────────────────────────────
+  async function doDecrypt() {
+    const file = document.getElementById('decryptFile').files[0];
+    const pass = document.getElementById('decryptPass').value;
+
+    if (!file) return showToast('Please select an encrypted file', 'error');
+    if (!pass) return showToast('Please enter the password', 'error');
+
+    const btn = document.getElementById('decryptBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Decrypting…';
+
+    const prog = document.getElementById('decryptProgress');
+    const bar  = document.getElementById('decryptBar');
+    prog.classList.add('visible');
+    bar.style.width = '40%';
+
+    const form = new FormData();
+    form.append('file', file);
+    form.append('password', pass);
+
+    try {
+      bar.style.width = '80%';
+      const res = await fetch('/decrypt', { method: 'POST', body: form });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Decryption failed');
+      }
+
+      bar.style.width = '100%';
+
+      // Get filename from Content-Disposition header
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename[^;=\n]*=['"]?([^'";\n]*)['"]?/);
+      const filename = match ? match[1] : 'decrypted_file';
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      showToast(`Decrypted as: ${filename}`);
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Decrypt &amp; Download';
+      setTimeout(() => { prog.classList.remove('visible'); bar.style.width = '0%'; }, 1000);
+    }
+  }
+</script>
+</body>
+</html>
